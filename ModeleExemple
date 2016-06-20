@@ -1,0 +1,32 @@
+package ccm.kx.swing;
+import java.io.*;
+public class Euler {
+public static void main(String args[] ) throws Exception {
+double g;
+double tau;
+double w;
+int nit,i;
+double x;
+double y;
+double l;
+g=9.81; // constante de gravitation.
+y=0; // condition initiale sur y.
+i=0;
+nit=1000; // nombre d'itérations.
+tau=0.01; // pas d'intégration.
+l=0.05;  // longueur du fil. 
+x=0.5; // condition initiale sur x.
+w=Math.sqrt(g/l); // pulsation;
+try
+{
+FileWriter fich = new FileWriter("results.txt"); // On sauvegardera dans results.txt.
+for(i=1;i<=nit;i++)
+{
+x=x+tau*y;
+y=y+tau*((-w*w)*Math.sin(x));
+String s = i+ " "+x + " "+y + "\n";
+fich.write(s); // On sauvegarde periodiquement i, x, y dans le fichier results.txt. }
+catch (Exception e) // bloc d'instructions exécutées en cas d'exception.
+System.out.println("Fin d'execution");
+}
+}
