@@ -1,0 +1,396 @@
+{\rtf1\ansi\ansicpg1252\cocoartf1404\cocoasubrtf460
+{\fonttbl\f0\fmodern\fcharset0 Courier;}
+{\colortbl;\red255\green255\blue255;\red0\green0\blue0;\red46\green111\blue253;\red255\green39\blue18;
+}
+\paperw11900\paperh16840\margl1440\margr1440\vieww10800\viewh8400\viewkind0
+\deftab720
+\pard\pardeftab720\sl280\partightenfactor0
+
+\f0\fs24 \cf2 \expnd0\expndtw0\kerning0
+\outl0\strokewidth0 \strokec2 import numpy as np\
+import matplotlib.pyplot as plt\
+#import scipy.integrate as integrate\
+import matplotlib.animation as animation\
+from scipy.spatial.distance import pdist, squareform\
+import sys\
+import time\
+from matplotlib.patches import Ellipse, Rectangle\
+\
+\
+max_count_t = 10\
+count_t = 0\
+\
+# CONSTANTES\
+DT             = 0.25\
+DEFAULT_MODE   = "change deformation rate"\
+DEFAULT_STRESS_DOTX  = 0.0\
+DEFAULT_STRESS_DOTY  = 0.0\
+DEFAULT_DEFORMATION_RATEX  = 0.0\
+DEFAULT_DEFORMATION_RATEY  = 0.0\
+INCREASE_DEFORMATION_RATE = 1\
+INCREASE_STRESS = 1\
+INCREASE_STRESS_DOT = 1\
+INCREASE_SURFACE_TENSION = 0.2\
+\
+# VARIABLES D'ACTUALISATION DE LA TAILLE DE L'ELLIPSE\
+stress_dotX         = DEFAULT_STRESS_DOTX\
+stress_dotY         = DEFAULT_STRESS_DOTY\
+DX         = DEFAULT_DEFORMATION_RATEX\
+DY         = DEFAULT_DEFORMATION_RATEY\
+\
+stressX = 0.0\
+stressY = 0.0\
+stress_prescribedX = 0.0\
+stress_prescribedY = 0.0\
+stress_interneX = 0.0\
+stress_interneY = 0.0\
+pressure_interne = 0.0\
+pressure_interne_dot = 0.0\
+dev_stress_interne_dot = 0.0\
+artificial_stress_dotX = 0.0\
+artificial_stress_dotY = 0.0\
+UX = 0.0\
+UY = 0.0\
+DX = 0.0\
+DY = 0.0\
+UintraX = 0.0\
+UintraY = 0.0\
+DintraX = 0.0\
+DintraY = 0.0\
+\
+bool_incompressible = True\
+\
+# Parameters\
+viscosity_rearrangements = 1.0\
+shear_modulus_cell = 1.0\
+surface_tension = 0.0\
+\
+# MODE :\
+# - "change force" : changer la force avec les fl\'c3\'a8ches / 0 / 1\
+# - "change dforce/dt" : changer la dforce/dt avec les fl\'c3\'a8ches / 0 / 1\
+# - "change deformation rate" : changer la vitesse avec les fl\'c3\'a8ches / 0 / 1\
+mode           = DEFAULT_MODE\
+\
+# Cell and tissue dimensions\
+cellWidth_0 = 1\
+cellHeight_0 = 1\
+tisWidth_0 = 4\
+tisHeight_0 = 4\
+\
+cellWidth = cellWidth_0\
+cellHeight = cellHeight_0\
+tisWidth = tisWidth_0\
+tisHeight = tisHeight_0\
+\
+# Prepare for one step back\
+previous_stressX = stressX\
+previous_stressY = stressY\
+previous_stress_prescribedX = stress_prescribedX\
+previous_stress_prescribedY = stress_prescribedY\
+_prescribedprevious_pressure_interne = pressure_interne\
+previousStress_dotX = stress_dotX\
+previousStress_dotY = stress_dotY\
+previousDX = DX\
+previousDY = DY\
+previous_UintraX = UintraX\
+previous_UintraY = UintraY\
+previous_UX = UX\
+previous_UY = UY\
+\
+\
+\
+class ParticleBox() :\
+    """Orbits class\
+    """\
+    def __init__(self) :\
+        self.time_elapsed = 0\
+\
+    def step(self, dt) :\
+        """Step once by dt seconds"""\
+        global UX, UY, UintraX, UintraY\
+        global DX, DY, DintraX, DintraY\
+        global stressX, stressY, pressure_interne, pressure_interne_dot, dev_stress_interne_dot\
+        self.time_elapsed += dt\
+\
+        if(mode == 'change deformation rate'):\
+            UX += DX * dt\
+            UY += DY * dt\
+            stress_interneX = stressX - 2 * surface_tension / cellHeight\
+            stress_interneY = stressY - 2 * surface_tension / cellWidth\
+            DintraX = DX - (stress_interneX - pressure_interne) / (2 * viscosity_rearrangements)\
+            DintraY = DY - (stress_interneY - pressure_interne) / (2 * viscosity_rearrangements)\
+            UintraX += DintraX * dt\
+            UintraY += DintraY * dt\
+            stress_interneX = pressure_interne + 2 * shear_modulus_cell * (UintraX - UintraY) / 2\
+            stress_interneY = pressure_interne + 2 * shear_modulus_cell * (UintraY - UintraX) / 2\
+            stressX = stress_interneX + 2 * surface_tension / cellHeight\
+            stressY = stress_interneY + 2 * surface_tension / cellWidth\
+        \
+        if((mode == 'change dforce/dt')|(mode == 'change force')):\
+            #pressure_interne = (stressX + stressY) / 2\
+            pressure_dot = (stressX + stressY) / 2\
+            DX = ((stress_dotX - stress_dotY) / (2 * shear_modulus_cell) + (stressX - stressY) / (2 * viscosity_rearrangements) + (1 / tisWidth - 1 / tisHeight) * (2 * surface_tension) / (2 * viscosity_rearrangements)) / (1 + surface_tension  / (2 * shear_modulus_cell) * (1 / tisWidth + 1 / tisHeight)) / 2\
+            DY = -DX\
+            UX += DX * dt\
+            UY += DY * dt\
+            dev_stress_interne_dot = (stress_dotX - stress_dotY) / 2 - surface_tension * DX * (1 / tisWidth + 1 / tisHeight)\
+            DintraX = dev_stress_interne_dot / (2 * shear_modulus_cell)\
+            DintraY = - DintraX\
+            UintraX += DintraX * dt\
+            UintraY += DintraY * dt\
+            stressX += stress_dotX * dt\
+            stressY += stress_dotY * dt\
+        \
+        calculate_cell_and_tissue_dimensions_from_deformations()\
+\
+\
+#------------------------------------------------------------\
+# Set up initial state\
+\
+box = ParticleBox()\
+dt = 1. / 30 # 30fps\
+\
+\
+#------------------------------------------------------------\
+# Set up figure and animation\
+\
+fig = plt.figure()\
+fig.subplots_adjust(left=0, right=1, bottom=0, top=1)\
+\
+ax = fig.add_subplot(111, aspect='equal', autoscale_on=False, \\\
+                     xlim=(-16,16), ylim=(-12, 12))\
+    \
+tissue = plt.Rectangle((0,0),0.5,1, ec='green', lw=2, fc='none')\
+ax.add_patch(tissue)\
+\
+cell = Ellipse((0,0), cellWidth, cellHeight, 0, ec='green', lw=4, fc='none')\
+ax.add_patch(cell)\
+\
+\
+def calculate_cell_and_tissue_dimensions_from_deformations():\
+    global cellWidth, cellHeight, tisWidth, tisHeight\
+    #print("tissue and cell dimenstions")\
+    cellWidth = cellWidth_0 * np.exp(UintraX)\
+    cellHeight = cellHeight_0 * np.exp(UintraY)\
+    tisWidth  = tisWidth_0 * np.exp(UX)\
+    tisHeight = tisHeight_0 * np.exp(UY)\
+\
+def update_tissue_and_cell_drawing():\
+    global cell, tissue\
+    #print("tissue and cell drawing")\
+    tissue.set_bounds(-tisWidth/2,-tisHeight/2,tisWidth,tisHeight)\
+    cell.width = cellWidth\
+    cell.height = cellHeight\
+\
+        \
+def deviatorize_deformation_rate_if_incompressible():\
+    global DX, DY\
+    if(bool_incompressible):\
+        traceD = DX+DY\
+        DX -= traceD/2\
+        DY -= traceD/2\
+\
+\
+def init() :\
+    """Initialize animation"""\
+#    global box, rect\
+#    particles.set_data([], [])\
+\
+def press(event):\
+    global count_t, tissue\
+    global stressX, stressY\
+    global stress_prescribedX, stress_prescribedY\
+    global previous_stressX, previous_stressY\
+    global previous_stress_prescribedX, previous_stress_prescribedY\
+    global stress_dotX, stress_dotY\
+    global artificial_stress_dotX, artificial_stress_dotY\
+    global DX, DY, traceD\
+    global previousStress_dotX, previousStress_dotY, previousDX, previousDY\
+    global previous_UintraX, previous_UintraY, previous_UX, previous_UY\
+    global UintraX, UintraY, UX, UY\
+    global surface_tension\
+    global mode\
+    print('press', event.key)\
+    sys.stdout.flush()\
+#    if(event.key=='a'):\
+#        if(mode == 'change force'):\
+#            calculate_transformation_after_sudden_stress_change()\
+#            update_tissue_and_cell_drawing()\
+#            mode = 'change dforce/dt'\
+#            stress_dotX= 0.0\
+#            stress_dotY= 0.0\
+#        previous_stressX = stressX\
+#        previous_stressY = stressY\
+#        previousStress_dotX = stress_dotX\
+#        previousStress_dotY = stress_dotY\
+#        previousDX = DX\
+#        previousDY = DY\
+#        previous_UintraX = UintraX\
+#        previous_UintraY = UintraY\
+#        previous_UX = UX\
+#        previous_UY = UY\
+    if(event.key=='t'):\
+        count_t = - max_count_t\
+        if(mode == 'change force'):\
+            count_t *= squeeze_time_factor\
+            artificial_stress_dotX = (stress_prescribedX - stressX) / dt * squeeze_time_factor / max_count_t\
+            artificial_stress_dotY = (stress_prescribedY - stressY) / dt * squeeze_time_factor / max_count_t\
+        previous_stressX = stressX\
+        previous_stressY = stressY\
+        previous_stress_prescribedX = stress_prescribedX\
+        previous_stress_prescribedY = stress_prescribedY\
+        previousStress_dotX = stress_dotX\
+        previousStress_dotY = stress_dotY\
+        previousDX = DX\
+        previousDY = DY\
+        previous_UintraX = UintraX\
+        previous_UintraY = UintraY\
+        previous_UX = UX\
+        previous_UY = UY\
+ \
+#        if(mode=='change dforce/dt'):\
+#            print("[o] stressX = ",stressX,"  stressY = ",stressY)\
+#        if(mode=='change deformation rate'):\
+#            print("[v] deformation rate   DX = ",DX,"  DY = ",DY)\
+    if(event.key=='p'):\
+        stressX = previous_stressX\
+        stressY = previous_stressY\
+        stress_prescribedX = previous_stress_prescribedX\
+        stress_prescribedY = previous_stress_prescribedY\
+        stress_dot_X = previousStress_dotX\
+        stress_dot_Y = previousStress_dotY\
+        DX = previousDX\
+        DY = previousDY\
+        UintraX = previous_UintraX\
+        UintraY = previous_UintraY\
+        UX = previous_UX\
+        UY = previous_UY\
+        calculate_cell_and_tissue_dimensions_from_deformations()\
+\
+    if(event.key=='o'):\
+        mode = 'change force'\
+        DX = 0.0\
+        DY = 0.0\
+        stress_prescribedX = 0.0\
+        stress_prescribedY = 0.0\
+        stress_dotX = 0.0\
+        stress_dotY = 0.0\
+    if(event.key=='d'):\
+        mode = 'change dforce/dt'\
+        DX = 0.0\
+        DY = 0.0\
+    if(event.key=='v'):\
+        mode = 'change deformation rate'\
+        stress_prescribedX = 0.0\
+        stress_prescribedY = 0.0\
+        stress_dotX = 0.0\
+        stress_dotY = 0.0\
+    if(event.key=='y'):\
+        mode = 'change surface tension'\
+    if(event.key=='0'):\
+    	if(mode=='change force'):\
+    	    stress_prescribedX = 0.0\
+    	    stress_prescribedY = 0.0\
+    	if(mode=='change dforce/dt'):\
+    	    stress_dotX = 0.0\
+    	    stress_dotY = 0.0\
+    	if(mode=='change deformation rate'):\
+    	    DX = 0.0\
+    	    DY = 0.0\
+    if(event.key=='right'):\
+    	if(mode=='change force'):\
+    	    stress_prescribedX += INCREASE_STRESS\
+    	if(mode=='change dforce/dt'):\
+    	    stress_dotX += INCREASE_STRESS_DOT\
+    	if(mode=='change deformation rate'):\
+    	    DX += INCREASE_DEFORMATION_RATE\
+    	    deviatorize_deformation_rate_if_incompressible()\
+    	if(mode=='change surface tension'):\
+    	    surface_tension += INCREASE_SURFACE_TENSION\
+    if(event.key=='left'):\
+    	if(mode=='change force'):\
+    	    stress_prescribedX -= INCREASE_STRESS\
+    	if(mode=='change dforce/dt'):\
+    		stress_dotX -= INCREASE_STRESS_DOT\
+    	if(mode=='change deformation rate'):\
+    		DX -= INCREASE_DEFORMATION_RATE\
+    		deviatorize_deformation_rate_if_incompressible()\
+    	if(mode=='change surface tension'):\
+    	    surface_tension -= INCREASE_SURFACE_TENSION\
+    if(event.key=='up'):\
+    	if(mode=='change force'):\
+    	    stress_prescribedY += INCREASE_STRESS\
+    	if(mode=='change dforce/dt'):\
+            stress_dotY += INCREASE_STRESS_DOT\
+    	if(mode=='change deformation rate'):\
+    	    DY += INCREASE_DEFORMATION_RATE\
+    	    deviatorize_deformation_rate_if_incompressible()\
+    	if(mode=='change surface tension'):\
+    	    surface_tension += INCREASE_SURFACE_TENSION\
+    if(event.key=='down'):\
+    	if(mode=='change force'):\
+    	    stress_prescribedY -= INCREASE_STRESS\
+    	if(mode=='change dforce/dt'):\
+    	    stress_dotY -= INCREASE_STRESS_DOT\
+    	if(mode=='change deformation rate'):\
+    	    DY -= INCREASE_DEFORMATION_RATE\
+    	    deviatorize_deformation_rate_if_incompressible()\
+    	if(mode=='change surface tension'):\
+    	    surface_tension -= INCREASE_SURFACE_TENSION\
+    print("dforceX/dt = ",stress_dotX,"    dforceY/dt = ",stress_dotY)\
+    print("stressX = ",stressX,"  stressY = ",stressY)\
+    print("deformation rate   DX = ",DX,"  DY = ",DY)\
+    print("surface tension = ",surface_tension)\
+    if(mode=='change force'):\
+        print("prescribed stressX = ",stress_prescribedX,"  prescribed stressY = ",stress_prescribedY)\
+        print("[o] You are in imposed force mode. Press arrows to change force or d to impose dforce/dt or v to impose deformation rate. Press t to let time flow.")\
+    if(mode=='change dforce/dt'):\
+        print("[d] You are in imposed dforce/dt mode. Press arrows to change dforce/dt or o to impose force or v to impose deformation rate. Press t to let time flow.")\
+    if(mode=='change deformation rate'):\
+        print("[v] You are in imposed deformation rate mode. Press arrows to change deformation rate or o to impose force or d to impose dforce/dt. Press t to let time flow.")\
+    update_tissue_and_cell_drawing()\
+\
+\
+\
+squeeze_time_factor = 1\
+\
+def animate(i) :\
+    """Perform animation step"""\
+    global box, dt, ax, fig, count_t, cell, tissue\
+    global stress_dotX, stress_dotY\
+    if(count_t<0):\
+        count_t += 1\
+        if(mode=='change force'):\
+            #print("artificial_stress_dotX = ",artificial_stress_dotX,"   artificial_stress_dotY = ",artificial_stress_dotY)\
+            stress_dotX = artificial_stress_dotX\
+            stress_dotY = artificial_stress_dotY\
+            box.step(dt / squeeze_time_factor)\
+            stress_dotX = 0.0\
+            stress_dotY = 0.0\
+        else:\
+            box.step(dt)\
+    if((mode!='change force')|(count_t>=0)):\
+        update_tissue_and_cell_drawing()\
+    if(count_t>=0):\
+        time.sleep(0.2)\
+#    update_tissue_and_cell_drawing()\
+\
+update_tissue_and_cell_drawing()\
+\
+ani = animation.FuncAnimation(fig, animate, frames=600, \\\
+                              interval=max_count_t, blit=False, init_func=init)\
+#ani.save('particle_box.mp4', fps=30, codec='libx264')\
+\
+print("==========================")\
+\cf3 if(mode=='change force'):\
+    print("[o] You are in imposed force mode. Press arrows to change force or d to impose dforce/dt or v to impose deformation rate. Press t to let time flow.")\
+if(mode=='change dforce/dt'):\
+    print("[d] You are in imposed dforce/dt mode. Press arrows to change dforce/dt or o to impose force or v to impose deformation rate. Press t to let time flow.")\cf2 \
+\cf4 if(mode=='change deformation rate'):\
+    print("[v] You are in imposed deformation rate mode. Press arrows to change deformation rate or o to impose force or d to impose dforce/dt. Press t to let time flow.")\
+print("==========================")\cf2 \
+\
+\
+fig.canvas.mpl_connect('key_press_event', press)\
+plt.show()\
+}
