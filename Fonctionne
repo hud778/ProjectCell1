@@ -1,0 +1,64 @@
+
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'/>
+    <title>Exemple javascript - Compteur</title>
+    <script>
+
+
+var tissu_x = 1;
+var dt = 0.01;
+var Dx = 1;
+var run_state = 'stop';
+var rect = document.getElementById('rect');
+
+function maxwell(){
+if (run_state == 'Dx') {
+tissu_x += tissu_x*Dx*dt;
+el_tissu_x.innerText = tissu_x;
+el_rect.style.width = String(100*tissu_x) + 'px';
+el_rect.style.height = String(100/tissu_x) + 'px';
+}
+}
+
+function onload(){  
+el_rect = document.getElementById('id_rect');
+el_tissu_x = document.getElementById('id_tissu_x');
+el_dt = document.getElementById('id_dt');
+el_dt.onchange = function(){
+dt = parseFloat(this.value);
+}
+
+el_Dx = document.getElementById('id_Dx');
+el_Dx.onchange = function(){
+Dx = parseFloat(this.value);
+}
+
+el_run_Dx = document.getElementById('id_run_Dx');
+el_run_Dx.onclick = function(){
+run_state = 'Dx';
+}
+
+el_stop = document.getElementById('id_stop');
+el_stop.onclick = function(){
+run_state = 'stop';
+}
+
+setInterval(maxwell, 1000);
+}
+    </script>
+  </head>
+  <body onload='onload();'>
+  <span id="id_tissu_x">1</span><br/>
+  Dx = <input type="number" id="id_Dx" value="1" step="1" /><br />
+  dt = <input type="number" id="id_dt" value="0.01" step="0.01" min="0" />
+<br /><br />
+<div id="id_rect" style="width: 100px; height: 100px; background-color: blue"></div>
+<br /><br />
+<button id="id_stop">Stop</button><br />
+<button id="id_run_Dx">Run at imposed deformation rate</button><br />
+
+</body>
+</html>
+
