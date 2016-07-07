@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset='utf-8'/>
+    <title>Exemple javascript - Compteur</title>
+    <style>
+      #container_tissu {width: 100%; margin: auto; height: 300px; position: relative;}
+      #id_stop {vertical-align: center; text-align: center; margin-left: auto; margin-right:auto; padding: auto;} 
+
+      </style>
+
+    <script>
+
+
+
+var eta =0.3;
+var G=1;
+var t = 0;
+var tissu_x = 1;
+var cell_x = 1;
+var Dcell_x=0 ;
+var devs = 0.0;
+var devsp = 0.0;
+var devsp_parse = 0.0;
+var Dx = 0.5;
+var Dx_parse = 0.5;
+var dt = 0.005;
+var run_state = 'stop';
+
+
+function maxwell(){
+
+if (run_state == 'Dx') {
+// recuperation Dx
+Dx = Dx_parse;
+// calculs
+Dcell_x = Dx - devs/(2*eta);
+devsp = Dcell_x * (2*G);
+// affichage devsp
+el_devsp.value = devsp;
+}
+
+if (run_state == 'devsp') {
+// recuperation devsp
+devsp = devsp_parse;
+// calculs
+Dcell_x = devsp/(2*G);
+Dx = Dcell_x + devs / (2*eta);
+// affichage Dx
+el_Dx.value = Dx;
+}
+
+if (run_state != 'stop') {
+// increments
+devs += devsp*dt;
+tissu_x += tissu_x*Dx*dt;
+cell_x += cell_x*Dcell_x*dt;
+t += dt;
+// affichage
+el_time.innerText = t;
+el_tissu_x.innerText = tissu_x;
+el_cell_x.innerText = cell_x;
+el_Dcell_x.innerText = Dcell_x;
+el_devs.innerText = devs;
+el_rect_cell.style.width = String(150*cell_x)+ 'px';
+el_rect_cell.style.height = String(150/cell_x) + 'px';
+el_rect.style.width = String(450*tissu_x) + 'px';
+el_rect.style.height = String(450/tissu_x) + 'px';
+}
+
+}
+
+function onload(){  
+
+run_state = 'stop';
+
+el_time = document.getElementById('id_time');
+el_tissu_x = document.getElementById('id_tissu_x');
+el_cell_x = document.getElementById('id_cell_x');
+el_Dcell_x = document.getElementById('id_Dcell_x');
+el_devs = document.getElementById('id_devs');
+
+el_devsp = document.getElementById('id_devsp');
+el_devsp.onchange = function(){
+devsp_parse = parseFloat(this.value);
+}
+
+el_Dx = document.getElementById('id_Dx');
+el_Dx.onchange = function(){
+Dx_parse = parseFloat(this.value);
+}
+
+el_dt = document.getElementById('id_dt');
+el_dt.onchange = function(){
+dt = parseFloat(this.value);
+}
+
+el_stop = document.getElementById('id_stop');
+el_stop.onclick = function(){
+run_state = 'stop';
+}
+
+el_run_Dx = document.getElementById('id_run_Dx');
+el_run_Dx.onclick = function(){
+if (run_state == 'Dx') {run_state = 'stop';}
+else {run_state = 'Dx';}
+}
+
+el_run_devsp = document.getElementById('id_run_devsp');
+el_run_devsp.onclick = function(){
+if (run_state == 'devsp') {run_state = 'stop';}
+else {run_state = 'devsp';}
+}
+
+el_rect = document.getElementById('id_rect');
+el_rect_cell= document.getElementById('id_rect_cell');
+
+setInterval(maxwell, 100);
+}
+    </script>
+  </head>
+  <body onload='onload();'>
+  time = <span id="id_time">0</span><br/>
+  X_tissue = <span id="id_tissu_x">1</span><br/>
+  x_cell = <span id="id_cell_x">1</span><br/>
+  D_cell = <span id="id_Dcell_x">0</span><br/>
+  dev_sigma = <span id="id_devs">0</span><br/>
+  dev_sigma_dot = <input type="number" id="id_devsp" value="0" step="0.1" /><br />
+  D = <input type="number" id="id_Dx" value=".5" step="0.5" /><br />
+  dt = <input type="number" id="id_dt" value="0.005" step="0.005" min="0" />
+<br /><br />
+<button id="id_stop">Stop</button><br />
+<button id="id_run_Dx">Run at imposed deformation rate</button><br />
+<button id="id_run_devsp">Run at imposed stress time derivative</button><br />
+<br /><br />
+<div id="container_tissu">
+  <div id="id_rect" style="width: 450px; height: 450px; background-color: blue"  > 
+    <div id="id_rect_cell" style="margin: 0 auto; width: 150px; height: 150px; border-radius: 50%; background-color: red">  </div>
+  </div> 
+</div>
+</body>
+</html>
+
